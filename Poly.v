@@ -1659,20 +1659,46 @@ Example trans_eq_exercise : forall (n m o p : nat),
      (n + p) = m ->
      (n + p) = (minustwo o). 
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros.
+  apply trans_eq with (m).
+  assumption.
+  assumption.
+Qed.
 
 Theorem beq_nat_trans : forall n m p,
   true = beq_nat n m ->
   true = beq_nat m p ->
   true = beq_nat n p.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros.
+  apply trans_eq with (beq_nat m p). assumption.
+  destruct n.
+  destruct m.
+  reflexivity.
+  inversion H.
+  destruct m.
+  inversion H.
+  apply beq_nat_eq in H.
+  rewrite H.
+ reflexivity.
+Qed.
 
 Theorem override_permute : forall {X:Type} x1 x2 k1 k2 k3 (f : nat->X),
   false = beq_nat k2 k1 ->
   (override (override f k2 x2) k1 x1) k3 = (override (override f k1 x1) k2 x2) k3.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros. unfold override. remember (beq_nat k1 k3) as e1. 
+  destruct e1.
+  apply beq_nat_eq in Heqe1.
+  rewrite Heqe1 in H.
+  rewrite <- H.
+  reflexivity.
+  remember (beq_nat k2 k3) as e2.
+  destruct e2.
+  reflexivity.
+  reflexivity.
+Qed.
+
 (** [] *)
 
 (* ################################################################## *)
@@ -1757,7 +1783,17 @@ Proof. reflexivity. Qed.
 
 Theorem fold_length_correct : forall X (l : list X),
   fold_length l = length l.
-(* FILL IN HERE *) Admitted. 
+Proof.
+   intros.
+   induction l.
+   reflexivity.
+   simpl.
+   rewrite <- IHl.
+   unfold fold_length.
+   simpl.
+   reflexivity.
+Qed.
+
 (** [] *)
 
 (** **** Exercise: 3 stars, recommended (fold_map) *)
@@ -1765,7 +1801,7 @@ Theorem fold_length_correct : forall X (l : list X),
     below. *)
 
 Definition fold_map {X Y:Type} (f : X -> Y) (l : list X) : list Y :=
-(* FILL IN HERE *) admit.
+    fold (fun (x : X) (ac : list Y) => f x :: ac) l [].
 
 (** Write down a theorem in Coq stating that [fold_map] is correct,
     and prove it. *)
@@ -1808,55 +1844,14 @@ Inductive baz : Type :=
 (* FILL IN HERE *)
 [] *)
 
+
+ Check d mumble (b a 5).
+    Check d bool (b a 5).
+    Check e bool true.
+    Check e mumble (b c 0).
+    Check c.
+
 End MumbleBaz.
 
-(** **** Exercise: 4 stars, recommended (forall_exists_challenge) *)
-(** Challenge problem: Define two recursive [Fixpoints],
-    [forallb] and [existsb].  The first checks whether every
-    element in a list satisfies a given predicate:
-[[
-      forallb oddb [1,3,5,7,9] = true
 
-      forallb negb [false,false] = true
-  
-      forallb evenb [0,2,4,5] = false
-  
-      forallb (beq_nat 5) [] = true
-]]
-    The function [existsb] checks whether there exists an element in
-    the list that satisfies a given predicate:
-[[
-      existsb (beq_nat 5) [0,2,3,6] = false
- 
-      existsb (andb true) [true,true,false] = true
- 
-      existsb oddb [1,0,0,0,0,3] = true
- 
-      existsb evenb [] = false
-]]
-    Next, create a _nonrecursive_ [Definition], [existsb'], using
-    [forallb] and [negb].
- 
-    Prove that [existsb'] and [existsb] have the same behavior.
-*)
-
-(* FILL IN HERE *)
-(** [] *)
-
-(** **** Exercise: 2 stars, optional (index_informal) *)
-(** Recall the definition of the [index] function:
-[[
-   Fixpoint index {X : Type} (n : nat) (l : list X) : option X :=
-     match l with
-     | [] => None 
-     | a :: l' => if beq_nat n O then Some a else index (pred n) l'
-     end.
-]]
-   Write an informal proof of the following theorem:
-[[
-   forall X n l, length l = n -> @index X (S n) l = None.
-]]
-(* FILL IN HERE *)
-*)
-(** [] *)
 
