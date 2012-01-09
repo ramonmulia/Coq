@@ -644,7 +644,7 @@ Proof.
 Qed.
  
 Theorem zero_nbeq_S : forall n:nat,
-  _nat 0 (S n) = false.
+  beq_nat 0 (S n) = false.
 Proof.
   intros.
   simpl.
