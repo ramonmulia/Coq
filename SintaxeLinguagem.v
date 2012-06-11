@@ -1,13 +1,13 @@
 Require Export Types.
 
-Inductive conf : Type :=
-  | conf_trust : conf
-  | conf_ditrust : conf
-  | conf_dontcare : conf. 
+Inductive secty : Type :=
+  | trust : secty
+  | distrust : secty
+  | dontcare : secty. 
 
 Inductive ty : Type := 
-  | ty_Bool  : ty -> conf -> ty
-  | ty_arrow : ty -> ty -> conf -> ty.
+  | ty_Bool  : ty -> secty -> ty
+  | ty_arrow : ty -> ty -> secty -> ty.
 
 Inductive tm : Type :=
   | tm_var : id -> tm
@@ -15,7 +15,7 @@ Inductive tm : Type :=
   | tm_abs : id -> ty -> tm -> tm
   | tm_trust : tm -> tm
   | tm_distrust : tm -> tm
-  | tm_check :  tm -> tm 
+  | tm_check :  tm -> tm
   | tm_true : tm
   | tm_false : tm
   | tm_if : tm -> tm -> tm -> tm.
@@ -83,23 +83,172 @@ Inductive step : tm -> tm -> Prop :=
 
 where "t1 '==>' t2" := (step t1 t2).
 
+Definition context := partial_map ty.
+
+Definition lub_secty (x y : secty) : secty :=
+  match x with
+    | dontcare => dontcare
+    | trust    => y
+    | distrust  => match y with
+                    | dontcare => dontcare
+                    | _        => distrust    
+                  end
+  end.
+
+(**
+Inductive has_type : context -> tm -> ty -> Prop :=
+  | T_Var : forall Gamma x T,
+      Gamma x = Some T ->
+      has_type Gamma (tm_var x) T
+  | T_Abs : forall Gamma x T1 T2 t2 secty,
+      has_type (extend Gamma x T1) t2 T2 -> 
+      has_type Gamma (tm_abs x T1 t2) (ty_arrow T1 T2 secty)
+  | T_App : forall T1 T2 Gamma t1 t2 secty1 secty2,
+      has_type Gamma t1 (ty_arrow T1 T2 secty1) -> 
+      has_type Gamma t2 (ty_Bool T1 secty2) -> 
+      has_type Gamma (tm_app t1 t2) (ty_Bool T2 (lub_secty secty1 secty2))
+  | T_Trust : forall Gamma t1 T1 secty,
+       has_type Gamma t1 (ty_Bool T1 secty) -> 
+       has_type Gamma (tm_trust t1) (ty_Bool T1 trust)
+  | T_Distrust : forall Gamma t1 T1 secty,
+       has_type Gamma t1 (ty_Bool T1 secty) -> 
+       has_type Gamma (tm_distrust t1) (ty_Bool T1 distrust)
+  | T_Check : forall Gamma t1 T1,
+       has_type Gamma t1 (ty_Bool T1 trust) -> 
+       has_type Gamma (tm_check t1) (ty_Bool T1 trust)
+  | T_Sub : forall Gamma t1 T1 secty secty',
+       has_type Gamma t1 (ty_Bool T1 (lub_secty secty secty')) ->
+       has_type Gamma t1 (ty_Bool T1 secty').**)
+
+Inductive has_type : context -> term -> ty -> Prop :=
+  | T_True : forall ctx, has_type ctx tm_true (ty_bool Trust)
+  | T_False : forall ctx, has_type ctx tm_false (ty_bool Trust)
+  | T_Var : forall ctx v ty,
+        ctx v = Some ty -> has_type ctx (tm_var v) ty
+  | T_Abs : forall ctx x t2 T1 T2,
+        has_type (extend ctx x T1) t2 T2 ->
+        has_type ctx (tm_abs x T1 t2) (arrow T1 T2 Trust)
+  | T_App : forall ctx t1 t2 T11 T11' T12 s,
+        has_type ctx t1 (arrow T11 T12 s) ->
+        has_type ctx t2 T11' ->
+        subtype T11' T11     ->
+        has_type ctx (tm_app t1 t2) (update_secty T12 s)
+  | T_If : forall ctx t1 t2 t3 T s,
+        has_type ctx t1 (ty_bool s) ->
+        has_type ctx t2 T     ->
+        has_type ctx t3 T     ->
+        has_type ctx (tm_if t1 t2 t3) T
+  | T_Trust : forall ctx t T,
+        has_type ctx t T ->
+        has_type ctx (tm_trust t) (update_secty T Trust)
+  | T_Untrust : forall ctx t T,
+        has_type ctx t T ->
+        has_type ctx (tm_distrust t) (update_secty T Untrust)
+  | T_Check : forall ctx t T,
+        has_type ctx t T ->
+        sectyof T = Trust ->
+        has_type ctx (tm_check t) T
+  | T_Sub : forall ctx t T T',
+        has_type ctx t T ->
+        subtype T T'     ->
+        has_type ctx t T'. 
+
+
 Lemma value_not_eval: forall (t:tm),
      value t ->
      ~ exists t', t ==> t'.
 Proof.
-Admitted.
-
+intros t v.
+intro contra.
+destruct contra.
+inversion H; subst; clear H.
+inversion v; subst.
+inversion v; subst.
+inversion v; subst.
+inversion v; subst.
+inversion v; subst.
+inversion v; subst.
+inversion v; subst.
+inversion v; subst.
+inversion v; subst.
+inversion v; subst.
+inversion v; subst.
+inversion v.
+Qed.
 
 Theorem det_sem : forall t t' t'',
     t ==> t' ->
     t ==> t'' ->
     t' = t''.
 Proof.
-Admitted.
-
-
-
-
-
-
-
+intros t t' t'' H H2.
+  generalize dependent t''.
+  induction H ; intros.
+  Case "ST_AppAbs".
+      inversion H2; subst.
+      reflexivity.
+      inversion H4; subst.
+      apply value_not_eval in H.
+      destruct H; exists t2'. apply H5.
+   Case "ST_App1".
+      inversion H2; subst; clear H2.
+      inversion H; subst.
+      apply IHstep in H4.
+      rewrite H4; auto; subst.
+      apply value_not_eval in H3.
+      destruct H3; exists t1'; auto.
+  Case "ST_App2".
+      inversion H2; subst; clear H2.
+      apply value_not_eval in H5.
+      destruct H5; exists t2'; auto; subst.
+      apply value_not_eval in H.
+      destruct H; exists t1'; auto; subst.
+      apply IHstep in H6.
+      rewrite H6; auto; subst.
+  Case "ST_ifTrue".
+      inversion H2; subst; auto; subst.
+      inversion H4.
+  Case "ST_ifFalse".
+      inversion H2; subst.
+      auto; subst.
+      inversion H4.
+  Case "ST_if".
+      inversion H2; subst.
+      inversion H; subst. inversion H; subst.
+      apply IHstep in H5.
+      rewrite H5; auto; subst.
+  Case "ST_Trust".
+      inversion H2; subst.
+      apply IHstep in H1.
+      rewrite H1; auto; subst.
+      apply value_not_eval in H1.
+      destruct H1; exists t1'; auto; subst.
+  Case "ST_Distrust".
+      inversion H2; subst.
+      apply IHstep in H1.
+      rewrite H1; auto; subst.
+      apply value_not_eval in H1.
+      destruct H1; exists t'; auto; subst.
+  Case "ST_Check".
+      inversion H2; subst.
+      apply IHstep in H1.
+      rewrite H1; auto; subst.
+      apply value_not_eval in H1.
+      destruct H1; exists t'; auto; subst.
+  Case "ST_Trustv".
+      inversion H2; subst.
+      apply value_not_eval in H.
+      destruct H; exists t1'; auto; subst ; auto.
+      inversion H2; subst.
+      auto. auto.
+   Case "ST_Distrustv".
+      inversion H2; subst.
+      apply value_not_eval in H.
+      destruct H.
+      exists t'; auto. auto.
+   Case "ST_Checkv".
+      inversion H2; subst.
+      apply value_not_eval in H.
+      destruct H.
+      exists t'; auto. auto.
+Qed.
